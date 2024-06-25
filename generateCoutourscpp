@@ -1,0 +1,120 @@
+#include <QtCore/QCoreApplication>
+#include<gdal_alg.h>
+#include "gdal_priv.h"
+#include<ogrsf_frmts.h>
+#include "gdal_priv.h"
+#include "gdal_alg.h"
+#include "cpl_conv.h"
+//生成等高线
+///C++
+
+int Createontour(const char* pszSrcDEM, const char* pszDstShp, int iBandIndex, double dInterval,
+	const char * pszFormat,GDALProgressFunc pfnProgress, void *pProgressArg)
+{
+	/*if (pProcess != NULL)
+	{
+		pProcess->ReSetProcess();
+		pProcess->SetProgressTip("CreateContour...");
+	}*/
+	//std::string path = "E:\\02.code\\RJ2023DCL-05\\pie-patrol\\src\\RJ2023DCL-05\\thirdpart\\gdal342\\proj\\win64\\share\\proj\\";//proj.db˹Ԛ΄¼þ¼Ѝ
+	//const char* proj_path[] = { path.c_str(), nullptr };
+	//OSRSetPROJSearchPaths(proj_path);
+	GDALAllRegister();
+	OGRRegisterAll();
+
+	GDALDataset* poDataset;
+	poDataset = (GDALDataset*)GDALOpen(pszSrcDEM, GA_ReadOnly);
+	GDALRasterBand* poBand;
+	poBand = poDataset->GetRasterBand(iBandIndex);
+	int bNoDataSet = FALSE, bIgnoreNoData = FALSE;
+	double dfNoData = 0.0;
+	if (!bNoDataSet && !bIgnoreNoData)
+		dfNoData = poBand->GetNoDataValue(&bNoDataSet);
+
+	
+	const char* pszWKT;
+	pszWKT = poDataset->GetProjectionRef();
+
+	char* psz;
+	psz = const_cast<char*>(pszWKT);
+	if (pszWKT != NULL && strlen(pszWKT) != 0)
+	{
+		OGRSpatialReference oSRS;
+		oSRS.importFromWkt(&psz);
+		GDALDriver* poDriverDem;
+		poDriverDem = GetGDALDriverManager()->GetDriverByName("ESRI Shapefile");
+		GDALDataset* poDS;
+		poDS = poDriverDem->Create(pszDstShp, 0, 0, 0, GDT_Unknown, 0);
+		OGRLayer* poLayer;
+		poLayer = poDS->CreateLayer("Contour", &oSRS, wkbLineString, NULL);
+
+		OGRFieldDefn oFieldID("ID", OFTInteger);
+		oFieldID.SetWidth(8);
+		poLayer->CreateField(&oFieldID, false);
+		OGRFieldDefn oFieldEle("Elevation", OFTReal);
+		oFieldEle.SetWidth(12);
+		oFieldEle.SetPrecision(3);
+		poLayer->CreateField(&oFieldEle, false);
+
+		int nElevField = 1;
+
+
+		// 调用GDAL库中的函数生成等高线
+		//MyGDALProgressFunc pfnProgress = ALGTermProgress;
+		CPLErr eErr = GDALContourGenerate((GDALRasterBandH)poBand, dInterval, 100,
+			0, NULL,
+			bNoDataSet, dfNoData,
+			poLayer, 0, nElevField,
+			pfnProgress, pProgressArg);
+		QString st = "12345";
+		GDALClose(poDS);
+	}
+	else
+	{
+		OGRSpatialReference oSRS(pszWKT);
+		GDALDriver* poDriverDem;
+		poDriverDem = GetGDALDriverManager()->GetDriverByName("ESRI Shapefile");
+		GDALDataset* poDS;
+		poDS = poDriverDem->Create(pszDstShp, 0, 0, 0, GDT_Unknown, 0);
+		OGRLayer* poLayer;
+		poLayer = poDS->CreateLayer("Contour", &oSRS, wkbLineString, NULL);
+
+		OGRFieldDefn oFieldID("ID", OFTInteger);
+		oFieldID.SetWidth(8);
+		poLayer->CreateField(&oFieldID, false);
+		OGRFieldDefn oFieldEle("Elevation", OFTReal);
+		oFieldEle.SetWidth(12);
+		oFieldEle.SetPrecision(3);
+		poLayer->CreateField(&oFieldEle, false);
+
+		int nElevField = 1;
+
+
+		// 调用GDAL库中的函数生成等高线
+		//MyGDALProgressFunc pfnProgress = ALGTermProgress;
+		CPLErr eErr = GDALContourGenerate((GDALRasterBandH)poBand, dInterval,100,
+			0, NULL,
+			bNoDataSet, dfNoData,
+			poLayer, 0, nElevField,
+			pfnProgress, pProgressArg);
+	}
+
+	
+
+
+	
+
+	/*oSRS.Release();*/
+	GDALClose(poDataset);
+	return 1;
+}
+int main(int argc, char *argv[])
+{
+	QCoreApplication a(argc, argv);
+	std::string input = "F:\\05.data\\123\\DEM.tif";
+	std::string out = "F:\\05.data\\123\\25.shp";
+	const char*pszformat = "shp";
+
+	Createontour(input.c_str(), out.c_str(), 1, 5.0, pszformat, NULL, NULL);
+	return a.exec();
+}
